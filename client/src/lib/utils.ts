@@ -36,15 +36,15 @@ export function statusLabel(status: string): string {
 
 export function statusColor(status: string): string {
   const map: Record<string, string> = {
-    matched: 'bg-green-100 text-green-800',
-    amount_mismatch: 'bg-red-100 text-red-800',
-    fee_mismatch: 'bg-yellow-100 text-yellow-800',
-    magazord_only: 'bg-orange-100 text-orange-800',
-    marketplace_only: 'bg-purple-100 text-purple-800',
-    pending: 'bg-gray-100 text-gray-700',
-    running: 'bg-blue-100 text-blue-800',
-    completed: 'bg-green-100 text-green-800',
-    failed: 'bg-red-100 text-red-800',
+    matched: 'bg-[rgba(124,194,58,0.15)] text-[#7CC23A]',
+    amount_mismatch: 'bg-[rgba(229,83,75,0.15)] text-[#E5534B]',
+    fee_mismatch: 'bg-[rgba(201,124,42,0.15)] text-[#C97C2A]',
+    magazord_only: 'bg-[rgba(201,124,42,0.15)] text-[#C97C2A]',
+    marketplace_only: 'bg-[rgba(75,142,232,0.15)] text-[#4B8EE8]',
+    pending: 'bg-[rgba(82,82,92,0.3)] text-[#8A8A94]',
+    running: 'bg-[rgba(75,142,232,0.15)] text-[#4B8EE8]',
+    completed: 'bg-[rgba(124,194,58,0.15)] text-[#7CC23A]',
+    failed: 'bg-[rgba(229,83,75,0.15)] text-[#E5534B]',
   }
-  return map[status] ?? 'bg-gray-100 text-gray-700'
+  return map[status] ?? 'bg-[rgba(82,82,92,0.3)] text-[#8A8A94]'
 }

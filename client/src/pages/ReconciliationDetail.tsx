@@ -6,7 +6,7 @@ import { fmt, fmtDate, marketplaceLabel, statusLabel, statusColor } from '../lib
 import StatCard from '../components/StatCard.tsx'
 import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts'
 
-const PIE_COLORS = ['#10b981', '#ef4444', '#f59e0b', '#f97316', '#a855f7']
+const PIE_COLORS = ['#7CC23A', '#E5534B', '#C97C2A', '#4B8EE8', '#8A8A94']
 
 interface DetailResponse {
   session: ReconciliationSession
@@ -38,7 +38,7 @@ export default function ReconciliationDetail() {
   if (!data) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" style={{ borderColor: 'var(--arm)', borderTopColor: 'transparent' }} />
       </div>
     )
   }
@@ -61,14 +61,28 @@ export default function ReconciliationDetail() {
   const filtered = filter === 'all' ? items : items.filter((i) => i.status === filter)
   const unresolved = items.filter((i) => i.resolvedAt === null && i.status !== 'matched').length
 
+  const cardStyle = { backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }
+  const inputStyle = {
+    backgroundColor: 'var(--bg-elevated)',
+    border: '1px solid var(--border)',
+    color: 'var(--text-primary)',
+    borderRadius: '0.375rem',
+    padding: '0.25rem 0.5rem',
+    fontSize: '0.75rem',
+    width: '10rem',
+    outline: 'none',
+  }
+
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
-        <Link to="/reconciliation" className="text-sm text-gray-400 hover:text-gray-600">
+        <Link to="/reconciliation" className="text-sm transition-colors" style={{ color: 'var(--text-muted)' }}
+          onMouseEnter={(e) => ((e.target as HTMLElement).style.color = 'var(--text-secondary)')}
+          onMouseLeave={(e) => ((e.target as HTMLElement).style.color = 'var(--text-muted)')}>
           ← Conciliações
         </Link>
-        <span className="text-gray-300">/</span>
-        <h2 className="text-xl font-bold text-gray-900">
+        <span style={{ color: 'var(--border-strong)' }}>/</span>
+        <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
           {marketplaceLabel(session.marketplace)} — {fmtDate(session.periodStart)} a {fmtDate(session.periodEnd)}
         </h2>
       </div>
@@ -88,22 +102,25 @@ export default function ReconciliationDetail() {
 
       <div className="grid grid-cols-3 gap-6 mb-8">
         {/* Gráfico pizza */}
-        <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-6 flex flex-col items-center">
-          <h3 className="font-semibold text-gray-800 mb-4 self-start">Distribuição</h3>
+        <div className="rounded-xl p-6 flex flex-col items-center" style={cardStyle}>
+          <h3 className="text-sm font-semibold mb-4 self-start" style={{ color: 'var(--text-primary)' }}>Distribuição</h3>
           <PieChart width={220} height={200}>
             <Pie data={pieData} cx={110} cy={100} innerRadius={50} outerRadius={80} dataKey="value">
               {pieData.map((_, i) => (
                 <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
               ))}
             </Pie>
-            <Tooltip formatter={(v: unknown, name: unknown) => [String(v), String(name)]} />
-            <Legend />
+            <Tooltip
+              formatter={(v: unknown, name: unknown) => [String(v), String(name)]}
+              contentStyle={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'var(--text-primary)' }}
+            />
+            <Legend wrapperStyle={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }} />
           </PieChart>
         </div>
 
         {/* Resumo por status */}
-        <div className="col-span-2 rounded-xl bg-white shadow-sm border border-gray-100 p-6">
-          <h3 className="font-semibold text-gray-800 mb-4">Resumo Financeiro</h3>
+        <div className="col-span-2 rounded-xl p-6" style={cardStyle}>
+          <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Resumo Financeiro</h3>
           <div className="space-y-3">
             {[
               { label: 'Conciliados', key: 'matched' },
@@ -116,16 +133,16 @@ export default function ReconciliationDetail() {
               const diffItems = items.filter((i) => i.status === key && i.amountDiff)
               const totalDiff = diffItems.reduce((s, i) => s + parseFloat(i.amountDiff ?? '0'), 0)
               return (
-                <div key={key} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                <div key={key} className="flex items-center justify-between py-1.5" style={{ borderBottom: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-2">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColor(key)}`}>
                       {label}
                     </span>
                   </div>
                   <div className="flex items-center gap-6 text-sm">
-                    <span className="text-gray-500">{count} itens</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{count} itens</span>
                     {totalDiff > 0 && (
-                      <span className="text-red-600 font-medium">{fmt(totalDiff)}</span>
+                      <span className="font-medium tabular-nums" style={{ color: 'var(--status-error)' }}>{fmt(totalDiff)}</span>
                     )}
                   </div>
                 </div>
@@ -136,13 +153,21 @@ export default function ReconciliationDetail() {
       </div>
 
       {/* Tabela de itens */}
-      <div className="rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-800">Itens da Conciliação</h3>
+      <div className="rounded-xl overflow-hidden" style={cardStyle}>
+        <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Itens da Conciliação</h3>
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            style={{
+              backgroundColor: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-primary)',
+              borderRadius: '0.5rem',
+              padding: '0.25rem 0.75rem',
+              fontSize: '0.875rem',
+              outline: 'none',
+            }}
           >
             <option value="all">Todos ({items.length})</option>
             {Object.entries(statusCounts).map(([status, count]) => (
@@ -156,36 +181,34 @@ export default function ReconciliationDetail() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-right">Valor Magazord</th>
-                <th className="px-4 py-3 text-right">Valor Marketplace</th>
-                <th className="px-4 py-3 text-right">Diferença</th>
-                <th className="px-4 py-3 text-right">Taxa Magazord</th>
-                <th className="px-4 py-3 text-right">Taxa Marketplace</th>
-                <th className="px-4 py-3 text-left">Notas</th>
-                <th className="px-4 py-3" />
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                {['Status', 'Valor Magazord', 'Valor Marketplace', 'Diferença', 'Taxa Magazord', 'Taxa Marketplace', 'Notas', ''].map((h, i) => (
+                  <th key={i} className={`px-4 py-3 text-[10px] font-medium uppercase tracking-widest ${i >= 1 && i <= 5 ? 'text-right' : 'text-left'}`} style={{ color: 'var(--text-muted)' }}>{h}</th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody>
               {filtered.map((item) => (
-                <tr key={item.id} className={`hover:bg-gray-50/50 ${item.resolvedAt ? 'opacity-50' : ''}`}>
+                <tr key={item.id} className="transition-colors" style={{ borderBottom: '1px solid var(--border)', opacity: item.resolvedAt ? 0.4 : 1 }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-elevated)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '')}
+                >
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColor(item.status)}`}>
                       {statusLabel(item.status)}
                     </span>
                     {item.resolvedAt && (
-                      <span className="ml-2 text-xs text-gray-400">✓ resolvido</span>
+                      <span className="ml-2 text-xs" style={{ color: 'var(--text-muted)' }}>✓ resolvido</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">{item.magazordAmount ? fmt(item.magazordAmount) : '—'}</td>
-                  <td className="px-4 py-3 text-right">{item.marketplaceAmount ? fmt(item.marketplaceAmount) : '—'}</td>
-                  <td className={`px-4 py-3 text-right font-medium ${parseFloat(item.amountDiff ?? '0') > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                  <td className="px-4 py-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{item.magazordAmount ? fmt(item.magazordAmount) : '—'}</td>
+                  <td className="px-4 py-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{item.marketplaceAmount ? fmt(item.marketplaceAmount) : '—'}</td>
+                  <td className="px-4 py-3 text-right font-medium tabular-nums" style={{ color: parseFloat(item.amountDiff ?? '0') > 0 ? 'var(--status-error)' : 'var(--text-muted)' }}>
                     {item.amountDiff ? fmt(item.amountDiff) : '—'}
                   </td>
-                  <td className="px-4 py-3 text-right">{item.magazordFee ? fmt(item.magazordFee) : '—'}</td>
-                  <td className="px-4 py-3 text-right">{item.marketplaceFee ? fmt(item.marketplaceFee) : '—'}</td>
-                  <td className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate">{item.notes ?? '—'}</td>
+                  <td className="px-4 py-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{item.magazordFee ? fmt(item.magazordFee) : '—'}</td>
+                  <td className="px-4 py-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{item.marketplaceFee ? fmt(item.marketplaceFee) : '—'}</td>
+                  <td className="px-4 py-3 text-xs max-w-xs truncate" style={{ color: 'var(--text-muted)' }}>{item.notes ?? '—'}</td>
                   <td className="px-4 py-3 text-right">
                     {!item.resolvedAt && item.status !== 'matched' && (
                       resolveId === item.id ? (
@@ -195,23 +218,25 @@ export default function ReconciliationDetail() {
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             placeholder="Observação..."
-                            className="rounded border border-gray-300 px-2 py-1 text-xs w-40 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            style={inputStyle}
                           />
                           <button
                             onClick={() => resolve.mutate({ itemId: item.id, notes })}
                             disabled={resolve.isPending}
-                            className="text-xs font-medium text-green-600 hover:text-green-800"
+                            className="text-xs font-medium transition-colors"
+                            style={{ color: 'var(--arm)' }}
                           >
                             Salvar
                           </button>
-                          <button onClick={() => setResolveId(null)} className="text-xs text-gray-400 hover:text-gray-600">
+                          <button onClick={() => setResolveId(null)} className="text-xs transition-colors" style={{ color: 'var(--text-muted)' }}>
                             Cancelar
                           </button>
                         </div>
                       ) : (
                         <button
                           onClick={() => setResolveId(item.id)}
-                          className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                          className="text-xs font-medium transition-colors"
+                          style={{ color: 'var(--arm)' }}
                         >
                           Resolver
                         </button>

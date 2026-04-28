@@ -3,7 +3,81 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --bg-base: #0C0C0E;
+    --bg-surface: #141417;
+    --bg-elevated: #1E1E22;
+    --border: #2A2A30;
+    --border-strong: #3A3A42;
+    --text-primary: #EDEDED;
+    --text-secondary: #8A8A94;
+    --text-muted: #52525C;
+    --arm: #7CC23A;
+    --arm-dim: rgba(124, 194, 58, 0.12);
+    --arm-hover: #90D44E;
+    --status-ok: #7CC23A;
+    --status-error: #E5534B;
+    --status-warn: #C97C2A;
+    --status-info: #4B8EE8;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    font-family: Inter, system-ui, sans-serif;
+    font-feature-settings: "cv11" 1, "cv01" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4 {
+    letter-spacing: -0.02em;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.6);
+  }
+}
+
+@layer components {
+  .card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+  }
+
+  .btn-primary {
+    background-color: var(--arm);
+    color: #0C0C0E;
+    font-weight: 500;
+    transition: background-color 0.15s;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--arm-hover);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+  }
+
+  .input-dark {
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+  }
+
+  .input-dark::placeholder {
+    color: var(--text-muted);
+  }
+
+  .input-dark:focus {
+    outline: none;
+    border-color: var(--arm);
+    box-shadow: 0 0 0 3px var(--arm-dim);
   }
 }

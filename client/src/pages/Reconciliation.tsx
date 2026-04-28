@@ -8,6 +8,34 @@ import { format, subDays } from 'date-fns'
 const today = format(new Date(), 'yyyy-MM-dd')
 const sevenDaysAgo = format(subDays(new Date(), 7), 'yyyy-MM-dd')
 
+const inputStyle = {
+  backgroundColor: 'var(--bg-elevated)',
+  border: '1px solid var(--border)',
+  color: 'var(--text-primary)',
+  borderRadius: '0.5rem',
+  padding: '0.375rem 0.75rem',
+  fontSize: '0.875rem',
+  width: '100%',
+  outline: 'none',
+}
+
+const labelStyle = {
+  display: 'block',
+  fontSize: '0.75rem',
+  fontWeight: 500,
+  color: 'var(--text-muted)',
+  marginBottom: '0.25rem',
+  textTransform: 'uppercase' as const,
+  letterSpacing: '0.05em',
+}
+
+const cardStyle = {
+  backgroundColor: 'var(--bg-surface)',
+  border: '1px solid var(--border)',
+  borderRadius: '0.75rem',
+  padding: '1.5rem',
+}
+
 export default function Reconciliation() {
   const [marketplace, setMarketplace] = useState<'mercado_livre' | 'tiktok_shop'>('mercado_livre')
   const [periodStart, setPeriodStart] = useState(sevenDaysAgo)
@@ -55,20 +83,18 @@ export default function Reconciliation() {
 
   return (
     <div>
-      <h2 className="mb-6 text-xl font-bold text-gray-900">Conciliação Financeira</h2>
+      <h2 className="mb-6 text-xl font-semibold" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+        Conciliação Financeira
+      </h2>
 
       <div className="grid grid-cols-2 gap-6 mb-8">
         {/* Sincronizar dados */}
-        <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
-          <h3 className="font-semibold text-gray-800 mb-4">1. Sincronizar Pedidos</h3>
+        <div style={cardStyle}>
+          <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>1. Sincronizar Pedidos</h3>
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Fonte</label>
-              <select
-                value={syncSource}
-                onChange={(e) => setSyncSource(e.target.value as typeof syncSource)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
+              <label style={labelStyle}>Fonte</label>
+              <select value={syncSource} onChange={(e) => setSyncSource(e.target.value as typeof syncSource)} style={inputStyle}>
                 <option value="all">Todas as fontes</option>
                 <option value="magazord">Magazord</option>
                 <option value="mercado_livre">Mercado Livre</option>
@@ -77,20 +103,19 @@ export default function Reconciliation() {
             </div>
             <div className="flex gap-2">
               <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 mb-1">De</label>
-                <input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label style={labelStyle}>De</label>
+                <input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} style={inputStyle} />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Até</label>
-                <input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label style={labelStyle}>Até</label>
+                <input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} style={inputStyle} />
               </div>
             </div>
             <button
               onClick={handleSync}
               disabled={syncing}
-              className="w-full rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-900 disabled:opacity-60 transition-colors"
+              className="w-full rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60 transition-colors"
+              style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', color: 'var(--text-primary)' }}
             >
               {syncing ? 'Sincronizando...' : 'Sincronizar'}
             </button>
@@ -98,36 +123,30 @@ export default function Reconciliation() {
         </div>
 
         {/* Nova conciliação */}
-        <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
-          <h3 className="font-semibold text-gray-800 mb-4">2. Nova Conciliação</h3>
+        <div style={cardStyle}>
+          <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>2. Nova Conciliação</h3>
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Marketplace</label>
-              <select
-                value={marketplace}
-                onChange={(e) => setMarketplace(e.target.value as typeof marketplace)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
+              <label style={labelStyle}>Marketplace</label>
+              <select value={marketplace} onChange={(e) => setMarketplace(e.target.value as typeof marketplace)} style={inputStyle}>
                 <option value="mercado_livre">Mercado Livre</option>
                 <option value="tiktok_shop">TikTok Shop</option>
               </select>
             </div>
             <div className="flex gap-2">
               <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 mb-1">De</label>
-                <input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label style={labelStyle}>De</label>
+                <input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} style={inputStyle} />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Até</label>
-                <input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label style={labelStyle}>Até</label>
+                <input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} style={inputStyle} />
               </div>
             </div>
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
+              className="btn-primary w-full rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60 transition-colors"
             >
               {creating ? 'Criando...' : 'Iniciar Conciliação'}
             </button>
@@ -136,40 +155,37 @@ export default function Reconciliation() {
       </div>
 
       {/* Histórico de sessões */}
-      <div className="rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-800">Histórico de Conciliações</h3>
+      <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+        <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Histórico de Conciliações</h3>
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
-              <th className="px-6 py-3 text-left">Marketplace</th>
-              <th className="px-6 py-3 text-left">Período</th>
-              <th className="px-6 py-3 text-right">Magazord</th>
-              <th className="px-6 py-3 text-right">Marketplace</th>
-              <th className="px-6 py-3 text-right">Conciliados</th>
-              <th className="px-6 py-3 text-right">Divergências</th>
-              <th className="px-6 py-3 text-right">Diff</th>
-              <th className="px-6 py-3 text-left">Status</th>
-              <th className="px-6 py-3" />
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+              {['Marketplace', 'Período', 'Magazord', 'Marketplace', 'Conciliados', 'Divergências', 'Diff', 'Status', ''].map((h, i) => (
+                <th key={i} className={`px-6 py-3 text-[10px] font-medium uppercase tracking-widest ${i >= 2 && i <= 6 ? 'text-right' : 'text-left'}`} style={{ color: 'var(--text-muted)' }}>{h}</th>
+              ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody>
             {sessions?.map((s) => (
-              <tr key={s.id} className="hover:bg-gray-50/50">
-                <td className="px-6 py-3 font-medium">{marketplaceLabel(s.marketplace)}</td>
-                <td className="px-6 py-3 text-gray-500">
+              <tr key={s.id} className="transition-colors" style={{ borderBottom: '1px solid var(--border)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-elevated)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '')}
+              >
+                <td className="px-6 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{marketplaceLabel(s.marketplace)}</td>
+                <td className="px-6 py-3" style={{ color: 'var(--text-secondary)' }}>
                   {fmtDate(s.periodStart)} – {fmtDate(s.periodEnd)}
                 </td>
-                <td className="px-6 py-3 text-right">{s.totalMagazordOrders ?? '—'}</td>
-                <td className="px-6 py-3 text-right">{s.totalMarketplaceOrders ?? '—'}</td>
-                <td className="px-6 py-3 text-right text-green-700">{s.matchedCount ?? '—'}</td>
-                <td className="px-6 py-3 text-right text-red-600">
+                <td className="px-6 py-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{s.totalMagazordOrders ?? '—'}</td>
+                <td className="px-6 py-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{s.totalMarketplaceOrders ?? '—'}</td>
+                <td className="px-6 py-3 text-right tabular-nums" style={{ color: 'var(--arm)' }}>{s.matchedCount ?? '—'}</td>
+                <td className="px-6 py-3 text-right tabular-nums" style={{ color: 'var(--status-error)' }}>
                   {s.status === 'completed'
                     ? (s.amountMismatchCount ?? 0) + (s.magazordOnlyCount ?? 0) + (s.marketplaceOnlyCount ?? 0)
                     : '—'}
                 </td>
-                <td className="px-6 py-3 text-right">{s.totalAmountDiff ? fmt(s.totalAmountDiff) : '—'}</td>
+                <td className="px-6 py-3 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{s.totalAmountDiff ? fmt(s.totalAmountDiff) : '—'}</td>
                 <td className="px-6 py-3">
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColor(s.status)}`}>
                     {statusLabel(s.status)}
@@ -177,10 +193,7 @@ export default function Reconciliation() {
                 </td>
                 <td className="px-6 py-3 text-right">
                   {s.status === 'completed' && (
-                    <Link
-                      to={`/reconciliation/${s.id}`}
-                      className="text-xs font-medium text-blue-600 hover:text-blue-800"
-                    >
+                    <Link to={`/reconciliation/${s.id}`} className="text-xs font-medium transition-colors" style={{ color: 'var(--arm)' }}>
                       Ver detalhes →
                     </Link>
                   )}
@@ -189,7 +202,7 @@ export default function Reconciliation() {
             ))}
             {!sessions?.length && (
               <tr>
-                <td colSpan={9} className="px-6 py-8 text-center text-sm text-gray-400">
+                <td colSpan={9} className="px-6 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
                   Nenhuma conciliação criada ainda
                 </td>
               </tr>

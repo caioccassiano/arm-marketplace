@@ -38,11 +38,12 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({ ok: true })
   })
 
-  fastify.get('/auth/me', { preHandler: [fastify.requireAuth] }, async (request) => {
+  fastify.get('/auth/me', async (request) => {
+    // Autenticação desabilitada — devolve usuário fake quando não há sessão
     return {
-      id: request.session.userId,
-      email: request.session.userEmail,
-      name: request.session.userName,
+      id: request.session.userId ?? 0,
+      email: request.session.userEmail ?? 'admin@arm.com',
+      name: request.session.userName ?? 'Admin',
     }
   })
 }

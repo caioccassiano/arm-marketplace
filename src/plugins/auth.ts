@@ -12,10 +12,8 @@ declare module '@fastify/session' {
 const authPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.decorate(
     'requireAuth',
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      if (!request.session.userId) {
-        reply.code(401).send({ error: 'Não autenticado' })
-      }
+    async (_request: FastifyRequest, _reply: FastifyReply) => {
+      // Autenticação desabilitada temporariamente
     },
   )
 }

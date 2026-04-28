@@ -27,45 +27,94 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+    <div
+      className="flex min-h-screen items-center justify-center"
+      style={{ backgroundColor: 'var(--bg-base)' }}
+    >
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-gray-900">Conciliação Financeira</h1>
-          <p className="mt-1 text-sm text-gray-500">ARM — uso interno</p>
+        {/* Logo */}
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <div
+            className="flex items-center justify-center w-12 h-12 rounded-xl"
+            style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <line x1="6" y1="18" x2="10" y2="6" stroke="var(--text-primary)" strokeWidth="2.5" strokeLinecap="round" />
+              <line x1="11" y1="18" x2="15" y2="6" stroke="var(--text-primary)" strokeWidth="2.5" strokeLinecap="round" />
+              <circle cx="10.5" cy="13" r="2.5" fill="var(--arm)" />
+            </svg>
+          </div>
+          <div className="text-center">
+            <h1
+              className="text-lg font-semibold"
+              style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}
+            >
+              arm Market Placer
+            </h1>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              uso interno
+            </p>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="rounded-2xl bg-white p-8 shadow-sm border border-gray-100">
+        <form
+          onSubmit={handleSubmit}
+          className="rounded-xl p-7 space-y-5"
+          style={{
+            backgroundColor: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+          }}
+        >
           {error && (
-            <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+            <div
+              className="rounded-lg px-4 py-3 text-sm"
+              style={{
+                backgroundColor: 'rgba(229,83,75,0.12)',
+                border: '1px solid rgba(229,83,75,0.3)',
+                color: 'var(--status-error)',
+              }}
+            >
+              {error}
+            </div>
           )}
 
-          <label className="block text-sm font-medium text-gray-700">
-            Email
+          <div>
+            <label
+              className="block text-xs font-medium uppercase tracking-widest mb-1.5"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              Email
+            </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               autoFocus
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="input-dark block w-full rounded-lg px-3 py-2.5 text-sm"
             />
-          </label>
+          </div>
 
-          <label className="mt-4 block text-sm font-medium text-gray-700">
-            Senha
+          <div>
+            <label
+              className="block text-xs font-medium uppercase tracking-widest mb-1.5"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              Senha
+            </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="input-dark block w-full rounded-lg px-3 py-2.5 text-sm"
             />
-          </label>
+          </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="mt-6 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 transition-colors"
+            className="btn-primary w-full rounded-lg px-4 py-2.5 text-sm transition-colors"
           >
             {loading ? 'Entrando...' : 'Entrar'}
           </button>

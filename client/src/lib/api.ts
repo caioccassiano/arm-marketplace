@@ -27,6 +27,15 @@ export const api = {
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+
+  cmv: {
+    list: () => request<{ items: CmvProduct[]; total: number }>('/cmv'),
+    create: (data: { codigo: string; produtoId?: string | null; descricao?: string | null; preco: string }) =>
+      request<CmvProduct>('/cmv', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<{ codigo: string; produtoId: string | null; descricao: string | null; preco: string }>) =>
+      request<CmvProduct>(`/cmv/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    remove: (id: number) => request<{ ok: boolean }>(`/cmv/${id}`, { method: 'DELETE' }),
+  },
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -100,4 +109,27 @@ export interface GmvDaily {
   marketplace: string | null
   totalOrders: number
   totalAmount: string | null
+}
+
+export interface CmvProduct {
+  id: number
+  codigo: string
+  produtoId: string | null
+  descricao: string | null
+  preco: string
+  updatedAt: string
+}
+
+export type FeeType = 'FIXED' | 'PERCENTUAL'
+export type FeeAttribution = 'PER_ORDER' | 'PER_ITEM'
+
+export interface Fee {
+  id: number
+  description: string
+  feeType: FeeType
+  value: string
+  attributionType: FeeAttribution
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
 }

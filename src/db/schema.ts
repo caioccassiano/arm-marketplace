@@ -8,6 +8,7 @@ import {
   timestamp,
   date,
   jsonb,
+  boolean,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
@@ -108,6 +109,67 @@ export const reconciliationItems = pgTable('reconciliation_items', {
 
 export type ReconciliationItem = typeof reconciliationItems.$inferSelect
 export type NewReconciliationItem = typeof reconciliationItems.$inferInsert
+
+// ── Feitorias (snapshots de conciliação TikTok × Magazord) ────────────────────
+export const feitorias = pgTable('feitorias', {
+  id: serial('id').primaryKey(),
+  title: varchar('title', { length: 200 }).notNull(),
+  createdBy: integer('created_by').references(() => users.id),
+  payload: jsonb('payload').notNull(),
+  itemCount: integer('item_count').notNull().default(0),
+  totalDiff: numeric('total_diff', { precision: 12, scale: 2 }).notNull().default('0'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+export type Feitoria = typeof feitorias.$inferSelect
+export type NewFeitoria = typeof feitorias.$inferInsert
+
+// ── CMV (custo médio por SKU pai) ─────────────────────────────────────────────
+export const cmvProducts = pgTable('cmv_products', {
+  id: serial('id').primaryKey(),
+  codigo: varchar('codigo', { length: 100 }).notNull().unique(),
+  produtoId: varchar('produto_id', { length: 100 }),
+  descricao: text('descricao'),
+  preco: numeric('preco', { precision: 12, scale: 2 }).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export type CmvProduct = typeof cmvProducts.$inferSelect
+export type NewCmvProduct = typeof cmvProducts.$inferInsert
+
+// ── Taxas (fees) ──────────────────────────────────────────────────────────────
+// feeType:         'FIXED' (valor em R$) | 'PERCENTUAL' (número humano: 5.5 = 5,5%)
+// attributionType: 'PER_ORDER' (uma vez por pedido) | 'PER_ITEM' (por peça)
+// isActive:        soft-delete; taxas referenciadas por conciliações ficam inativas
+export const fees = pgTable('fees', {
+  id: serial('id').primaryKey(),
+  description: varchar('description', { length: 255 }).notNull(),
+  feeType: varchar('fee_type', { length: 20 }).notNull(),
+  value: numeric('value', { precision: 12, scale: 4 }).notNull(),
+  attributionType: varchar('attribution_type', { length: 20 }).notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export type Fee = typeof fees.$inferSelect
+export type NewFee = typeof fees.$inferInsert
+
+// ── Lucratividade (feitorias confrontadas com taxas) ─────────────────────────
+// feesSnapshot: snapshot das taxas ativas no momento da criação da entrada
+export const lucratividade = pgTable('lucratividade', {
+  id: serial('id').primaryKey(),
+  feitoriaId: integer('feitoria_id')
+    .references(() => feitorias.id, { onDelete: 'cascade' })
+    .notNull()
+    .unique(),
+  feesSnapshot: jsonb('fees_snapshot').notNull(),
+  investimentoAds: numeric('investimento_ads', { precision: 12, scale: 2 }).notNull().default('0'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+export type Lucratividade = typeof lucratividade.$inferSelect
+export type NewLucratividade = typeof lucratividade.$inferInsert
 
 // ── Relations ─────────────────────────────────────────────────────────────────
 export const reconciliationSessionsRelations = relations(reconciliationSessions, ({ one, many }) => ({

@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1777324089389,
+      "tag": "0000_brief_outlaw_kid",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777380933860,
+      "tag": "0001_left_vanisher",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777386841875,
+      "tag": "0002_overjoyed_darkstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777388620672,
+      "tag": "0003_cuddly_mentor",
+      "breakpoints": true
+    }
+  ]
+}

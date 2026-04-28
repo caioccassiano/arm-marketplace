@@ -4,12 +4,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: {
-          50: '#eff6ff',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
+        arm: {
+          DEFAULT: '#7CC23A',
+          dim: 'rgba(124,194,58,0.12)',
+          hover: '#90D44E',
         },
+        surface: '#141417',
+        base: '#0C0C0E',
+        elevated: '#1E1E22',
       },
     },
   },
