@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "dev:all": "concurrently -n api,web -c blue,green \"pnpm dev\" \"pnpm client:dev\"",
-    "build": "tsc -p tsconfig.build.json",
-    "start": "node dist/server.js",
+    "build": "pnpm client:build && tsc -p tsconfig.build.json",
+    "start": "node dist/migrate.js && node dist/server.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",

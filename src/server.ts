@@ -61,6 +61,8 @@ await fastify.register(fastifyMultipart, {
   },
 })
 
+fastify.get('/api/health', async () => ({ status: 'ok' }))
+
 // API routes
 await fastify.register(
   async (app) => {
