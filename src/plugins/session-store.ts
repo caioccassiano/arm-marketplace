@@ -29,9 +29,11 @@ export async function createPgSessionStore(): Promise<SessionStore> {
     },
     set(sid, session, callback) {
       const expire = new Date(Date.now() + 8 * 60 * 60 * 1000)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sessObj = JSON.parse(JSON.stringify(session)) as any
       sql`
         INSERT INTO sessions (sid, sess, expire)
-        VALUES (${sid}, ${JSON.stringify(session) as unknown as string}, ${expire})
+        VALUES (${sid}, ${sessObj}, ${expire})
         ON CONFLICT (sid) DO UPDATE SET sess = EXCLUDED.sess, expire = EXCLUDED.expire
       `
         .then(() => callback(null))
