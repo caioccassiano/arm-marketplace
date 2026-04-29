@@ -29,6 +29,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     request.session.userId = user.id
     request.session.userEmail = user.email
     request.session.userName = user.name
+    await request.session.save()
 
     return reply.send({ id: user.id, email: user.email, name: user.name })
   })

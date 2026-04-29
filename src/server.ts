@@ -24,6 +24,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const fastify = Fastify({
   bodyLimit: 100 * 1024 * 1024, // 100 MB — feitorias podem ter milhares de pedidos
+  trustProxy: true,
   ...(env.NODE_ENV === 'development'
     ? {
         logger: {
@@ -49,7 +50,7 @@ await fastify.register(fastifySession, {
     sameSite: 'lax',
     maxAge: 8 * 60 * 60 * 1000, // 8h
   },
-  saveUninitialized: false,
+  saveUninitialized: true,
 })
 
 await fastify.register(dbPlugin)
