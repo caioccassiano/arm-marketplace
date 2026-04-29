@@ -23,14 +23,15 @@ export async function createPgSessionStore(): Promise<SessionStore> {
   return {
     get(sid, callback) {
       sql`SELECT sess FROM sessions WHERE sid = ${sid} AND expire > NOW() LIMIT 1`
-        .then(([row]) => callback(null, row ? (row.sess as Record<string, unknown>) : null))
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .then(([row]) => callback(null, row ? (row.sess as any) : null))
         .catch((err) => callback(err as Error, null))
     },
     set(sid, session, callback) {
       const expire = new Date(Date.now() + 8 * 60 * 60 * 1000)
       sql`
         INSERT INTO sessions (sid, sess, expire)
-        VALUES (${sid}, ${JSON.stringify(session) as unknown as Record<string, unknown>}, ${expire})
+        VALUES (${sid}, ${JSON.stringify(session) as unknown as string}, ${expire})
         ON CONFLICT (sid) DO UPDATE SET sess = EXCLUDED.sess, expire = EXCLUDED.expire
       `
         .then(() => callback(null))

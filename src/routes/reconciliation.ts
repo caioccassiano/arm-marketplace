@@ -72,7 +72,7 @@ const reconciliationRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!session) return reply.code(404).send({ error: 'Sessão não encontrada' })
 
-      const [summary, [{ unresolvedCount }]] = await Promise.all([
+      const [summary, unresolvedRows] = await Promise.all([
         fastify.db
           .select({
             status: reconciliationItems.status,
@@ -94,6 +94,7 @@ const reconciliationRoutes: FastifyPluginAsync = async (fastify) => {
           ),
       ])
 
+      const unresolvedCount = unresolvedRows[0]?.unresolvedCount ?? 0
       return reply.send({ session, summary, unresolvedCount })
     },
   )
@@ -113,7 +114,7 @@ const reconciliationRoutes: FastifyPluginAsync = async (fastify) => {
         ? and(eq(reconciliationItems.sessionId, sessionId), eq(reconciliationItems.status, statusFilter))
         : eq(reconciliationItems.sessionId, sessionId)
 
-      const [items, [{ total }]] = await Promise.all([
+      const [items, totalRows] = await Promise.all([
         fastify.db
           .select({
             id: reconciliationItems.id,
@@ -140,6 +141,7 @@ const reconciliationRoutes: FastifyPluginAsync = async (fastify) => {
           .where(where),
       ])
 
+      const total = totalRows[0]?.total ?? 0
       return reply.send({ items, total, page: pageNum, limit: limitNum })
     },
   )
