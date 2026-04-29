@@ -162,7 +162,7 @@ export default function Dashboard() {
                   <td className="px-6 py-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                     {fmt(row.totalShipping)}
                   </td>
-                  <td className="px-6 py-3 text-right tabular-nums font-medium" style={{ color: 'var(--arm)' }}>
+                  <td className="px-6 py-3 text-right tabular-nums font-medium" style={{ color: 'var(--arm-text)' }}>
                     {fmt(row.totalNet)}
                   </td>
                 </tr>
@@ -256,7 +256,7 @@ export default function Dashboard() {
                   <td className="px-6 py-3" style={{ color: 'var(--text-secondary)' }}>
                     {fmtDate(s.periodStart)} – {fmtDate(s.periodEnd)}
                   </td>
-                  <td className="px-6 py-3 text-right tabular-nums" style={{ color: 'var(--arm)' }}>
+                  <td className="px-6 py-3 text-right tabular-nums" style={{ color: 'var(--arm-text)' }}>
                     {s.matchedCount ?? 0}
                   </td>
                   <td className="px-6 py-3 text-right tabular-nums" style={{ color: 'var(--status-error)' }}>

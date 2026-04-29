@@ -278,6 +278,69 @@ const lucratividadeRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.code(201).send(row)
   })
 
+  fastify.get('/lucratividade/:id/items', { preHandler: [fastify.requireAuth] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const entradaId = parseInt(id, 10)
+    if (!Number.isFinite(entradaId)) return reply.code(400).send({ error: 'ID inválido' })
+
+    const query = request.query as Record<string, string>
+    const pageNum = Math.max(1, parseInt(query.page ?? '1', 10))
+    const limitNum = Math.min(100, Math.max(1, parseInt(query.limit ?? '20', 10)))
+    const search = (query.search ?? '').trim().toLowerCase()
+    const onlyTransacionado = query.onlyTransacionado !== 'false'
+
+    const [entrada] = await fastify.db
+      .select()
+      .from(lucratividade)
+      .where(eq(lucratividade.id, entradaId))
+      .limit(1)
+    if (!entrada) return reply.code(404).send({ error: 'Entrada não encontrada' })
+
+    const [feitoria] = await fastify.db
+      .select()
+      .from(feitorias)
+      .where(eq(feitorias.id, entrada.feitoriaId))
+      .limit(1)
+    if (!feitoria) return reply.code(404).send({ error: 'Feitoria não encontrada' })
+
+    const cmvRows = await fastify.db
+      .select({ codigo: cmvProducts.codigo, preco: cmvProducts.preco })
+      .from(cmvProducts)
+    const cmvMap = new Map<string, number>()
+    for (const c of cmvRows) cmvMap.set(c.codigo, parseFloat(c.preco))
+
+    const feesSnapshot = (entrada.feesSnapshot as FeeSnapshot[]) ?? []
+    const payload = feitoria.payload as TikTokReconcileResult
+    const filteredPayload = {
+      ...payload,
+      items: payload.items.filter((i) => i.statusFinanceiro !== 'IGNORAR'),
+    }
+
+    const investimentoAds = parseFloat(entrada.investimentoAds)
+    const reembolsos = (payload as { reembolsos?: unknown }).reembolsos
+    const reembolsosArr = Array.isArray(reembolsos) ? (reembolsos as Array<{ valor: number }>) : null
+    const totalReembolsos = reembolsosArr
+      ? reembolsosArr.reduce((s, r) => s + (Number.isFinite(r.valor) ? r.valor : 0), 0)
+      : 0
+
+    const { items: allItems } = enrichWithCmvAndFees(filteredPayload, cmvMap, feesSnapshot, investimentoAds, totalReembolsos)
+
+    let filtered = onlyTransacionado ? allItems.filter((i) => i.foiTransacionado) : allItems
+    if (search) {
+      filtered = filtered.filter(
+        (i) =>
+          i.tiktokOrderId?.toLowerCase().includes(search) ||
+          i.magazordCodSec?.toLowerCase().includes(search) ||
+          i.items.some((it) => it.sku.toLowerCase().includes(search)),
+      )
+    }
+
+    const total = filtered.length
+    const items = filtered.slice((pageNum - 1) * limitNum, pageNum * limitNum)
+
+    return reply.send({ items, total, page: pageNum, limit: limitNum })
+  })
+
   fastify.get('/lucratividade/:id', { preHandler: [fastify.requireAuth] }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const entradaId = parseInt(id, 10)
@@ -341,7 +404,7 @@ const lucratividadeRoutes: FastifyPluginAsync = async (fastify) => {
         createdAt: feitoria.createdAt,
       },
       totals,
-      items,
+      totalItems: items.length,
       reembolsos: reembolsosResponse,
       cmvSize: cmvMap.size,
       feesCount: feesSnapshot.length,

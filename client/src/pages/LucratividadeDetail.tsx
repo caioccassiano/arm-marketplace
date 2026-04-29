@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api.ts'
 import { fmt } from '../lib/utils.ts'
@@ -68,18 +68,27 @@ interface LucratividadePayload {
     createdAt: string
   }
   totals: LucratividadeTotals
-  items: EnrichedItem[]
+  totalItems: number
   reembolsos: Reembolso[] | null
   cmvSize: number
   feesCount: number
 }
 
-const STATUS_FINANCEIRO_STYLE: Record<string, { bg: string; color: string }> = {
-  OK: { bg: 'rgba(124,194,58,0.15)', color: '#7CC23A' },
-  DIVERGENTE: { bg: 'rgba(229,83,75,0.15)', color: '#E5534B' },
-  A_RECEBER: { bg: 'rgba(201,124,42,0.15)', color: '#C97C2A' },
-  IGNORAR: { bg: 'rgba(82,82,92,0.3)', color: '#8A8A94' },
+interface ItemsPayload {
+  items: EnrichedItem[]
+  total: number
+  page: number
+  limit: number
 }
+
+const STATUS_FINANCEIRO_STYLE: Record<string, { bg: string; color: string }> = {
+  OK: { bg: 'rgba(124,194,58,0.12)', color: '#3A7D0A' },
+  DIVERGENTE: { bg: 'rgba(220,38,38,0.10)', color: '#B91C1C' },
+  A_RECEBER: { bg: 'rgba(217,119,6,0.12)', color: '#92400E' },
+  IGNORAR: { bg: 'rgba(107,114,128,0.12)', color: '#4B5563' },
+}
+
+const PAGE_SIZE = 20
 
 function pct(value: number | null): string {
   if (value === null) return '—'
@@ -93,6 +102,7 @@ export default function LucratividadeDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [onlyTransacionado, setOnlyTransacionado] = useState(true)
   const adsInputRef = useRef<HTMLInputElement>(null)
   const [adsLoading, setAdsLoading] = useState(false)
@@ -100,6 +110,11 @@ export default function LucratividadeDetail() {
   const [totals, setTotals] = useState<LucratividadeTotals | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  const [page, setPage] = useState(1)
+  const [itemsData, setItemsData] = useState<ItemsPayload | null>(null)
+  const [itemsLoading, setItemsLoading] = useState(false)
+
+  // Fetch main data (totals + meta, no items)
   useEffect(() => {
     if (!id) return
     setLoading(true)
@@ -114,21 +129,33 @@ export default function LucratividadeDetail() {
       .finally(() => setLoading(false))
   }, [id])
 
-  const visible = useMemo(() => {
-    if (!data) return []
-    let out = data.items
-    if (onlyTransacionado) out = out.filter((i) => i.foiTransacionado)
-    const term = search.trim().toLowerCase()
-    if (term) {
-      out = out.filter(
-        (i) =>
-          i.tiktokOrderId?.toLowerCase().includes(term) ||
-          i.magazordCodSec?.toLowerCase().includes(term) ||
-          i.items.some((it) => it.sku.toLowerCase().includes(term)),
-      )
-    }
-    return out
-  }, [data, search, onlyTransacionado])
+  // Debounce search input
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  // Reset to page 1 when filter/search changes
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch, onlyTransacionado])
+
+  // Fetch paginated items from server
+  useEffect(() => {
+    if (!id) return
+    setItemsLoading(true)
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(PAGE_SIZE),
+      search: debouncedSearch,
+      onlyTransacionado: String(onlyTransacionado),
+    })
+    api
+      .get<ItemsPayload>(`/lucratividade/${id}/items?${params}`)
+      .then((d) => setItemsData(d))
+      .catch((err) => console.error(err))
+      .finally(() => setItemsLoading(false))
+  }, [id, page, debouncedSearch, onlyTransacionado])
 
   async function handleSaveAds() {
     if (!id || !data) return
@@ -174,8 +201,13 @@ export default function LucratividadeDetail() {
   if (!data || !totals) return null
 
   const { feitoria, feesCount, cmvSize } = data
-
   const cardStyle = { backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }
+
+  const currentItems = itemsData?.items ?? []
+  const totalFiltered = itemsData?.total ?? 0
+  const totalPages = Math.ceil(totalFiltered / PAGE_SIZE)
+  const fromItem = totalFiltered > 0 ? (page - 1) * PAGE_SIZE + 1 : 0
+  const toItem = Math.min(page * PAGE_SIZE, totalFiltered)
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -251,22 +283,22 @@ export default function LucratividadeDetail() {
       <div className="rounded-xl p-5" style={{ backgroundColor: 'rgba(75,142,232,0.08)', border: '1px solid rgba(75,142,232,0.2)' }}>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: '#4B8EE8' }}>Custos TikTok</p>
-            <p className="mt-2 text-2xl font-semibold tabular-nums" style={{ color: '#4B8EE8', letterSpacing: '-0.02em' }}>
+            <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: '#2563EB' }}>Custos TikTok</p>
+            <p className="mt-2 text-2xl font-semibold tabular-nums" style={{ color: '#2563EB', letterSpacing: '-0.02em' }}>
               {fmt(totals.totalTarifaTiktok + totals.totalComissaoCreator)}
             </p>
             <div className="mt-3 space-y-1.5 pt-3" style={{ borderTop: '1px solid rgba(75,142,232,0.2)' }}>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs" style={{ color: '#4B8EE8' }}>Tarifa TikTok</span>
-                <span className="text-xs font-medium tabular-nums" style={{ color: '#4B8EE8' }}>{fmt(totals.totalTarifaTiktok)}</span>
+                <span className="text-xs" style={{ color: '#2563EB' }}>Tarifa TikTok</span>
+                <span className="text-xs font-medium tabular-nums" style={{ color: '#2563EB' }}>{fmt(totals.totalTarifaTiktok)}</span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs" style={{ color: '#4B8EE8' }}>Comissão Creator</span>
-                <span className="text-xs font-medium tabular-nums" style={{ color: '#4B8EE8' }}>{fmt(totals.totalComissaoCreator)}</span>
+                <span className="text-xs" style={{ color: '#2563EB' }}>Comissão Creator</span>
+                <span className="text-xs font-medium tabular-nums" style={{ color: '#2563EB' }}>{fmt(totals.totalComissaoCreator)}</span>
               </div>
             </div>
           </div>
-          <div className="rounded-lg px-4 py-3 max-w-sm" style={{ backgroundColor: 'rgba(201,124,42,0.12)', border: '1px solid rgba(201,124,42,0.25)' }}>
+          <div className="rounded-lg px-4 py-3 max-w-sm" style={{ backgroundColor: 'rgba(217,119,6,0.10)', border: '1px solid rgba(217,119,6,0.25)' }}>
             <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--status-warn)' }}>⚠ Não impacta a lucratividade</p>
             <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
               Tarifa TikTok e Comissão Creator <strong>não são deduzidos</strong> do Lucro Líquido.
@@ -303,7 +335,7 @@ export default function LucratividadeDetail() {
             {adsLoading ? 'Salvando…' : 'Salvar'}
           </button>
           {adsMsg && (
-            <span className="text-sm" style={{ color: adsMsg === 'Salvo' ? 'var(--arm)' : 'var(--status-error)' }}>
+            <span className="text-sm" style={{ color: adsMsg === 'Salvo' ? 'var(--arm-text)' : 'var(--status-error)' }}>
               {adsMsg}
             </span>
           )}
@@ -322,7 +354,7 @@ export default function LucratividadeDetail() {
         <p className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Lucro Líquido</p>
         <p
           className="mt-1 text-4xl font-bold tabular-nums"
-          style={{ color: totals.lucroLiquido >= 0 ? 'var(--arm)' : 'var(--status-error)', letterSpacing: '-0.03em' }}
+          style={{ color: totals.lucroLiquido >= 0 ? 'var(--arm-text)' : 'var(--status-error)', letterSpacing: '-0.03em' }}
         >
           {fmt(totals.lucroLiquido)}
         </p>
@@ -370,14 +402,20 @@ export default function LucratividadeDetail() {
               </tr>
             </thead>
             <tbody>
-              {visible.length === 0 ? (
+              {itemsLoading ? (
+                <tr>
+                  <td colSpan={11} className="px-4 py-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+                    Carregando pedidos…
+                  </td>
+                </tr>
+              ) : currentItems.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-4 py-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
                     Nenhum pedido nesta busca
                   </td>
                 </tr>
               ) : (
-                visible.map((item, idx) => (
+                currentItems.map((item, idx) => (
                   <tr key={idx} className="transition-colors" style={{ borderBottom: '1px solid var(--border)' }}
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-elevated)')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '')}
@@ -416,7 +454,7 @@ export default function LucratividadeDetail() {
                             {fmt(item.taxasAplicadas)}
                           </span>
                           <div className="absolute right-0 bottom-full mb-2 z-10 hidden group-hover:block">
-                            <div className="rounded-lg shadow-lg p-3 min-w-[220px] text-left" style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+                            <div className="rounded-lg shadow-lg p-3 min-w-[220px] text-left" style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
                               <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Taxas aplicadas</p>
                               <div className="space-y-1.5">
                                 {item.taxasBreakdown.map((b, i) => (
@@ -442,19 +480,19 @@ export default function LucratividadeDetail() {
                         : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums">
-                      {item.tarifaTiktokNum !== null ? <span style={{ color: '#4B8EE8' }}>{fmt(item.tarifaTiktokNum)}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                      {item.tarifaTiktokNum !== null ? <span style={{ color: '#2563EB' }}>{fmt(item.tarifaTiktokNum)}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums">
-                      {item.comissaoCreatorNum !== null ? <span style={{ color: '#4B8EE8' }}>{fmt(item.comissaoCreatorNum)}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                      {item.comissaoCreatorNum !== null ? <span style={{ color: '#2563EB' }}>{fmt(item.comissaoCreatorNum)}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums">
                       {item.lucro !== null ? (
-                        <span className="font-medium" style={{ color: item.lucro >= 0 ? 'var(--arm)' : 'var(--status-error)' }}>{fmt(item.lucro)}</span>
+                        <span className="font-medium" style={{ color: item.lucro >= 0 ? 'var(--arm-text)' : 'var(--status-error)' }}>{fmt(item.lucro)}</span>
                       ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums">
                       {item.margem !== null ? (
-                        <span style={{ color: item.margem >= 0 ? 'var(--arm)' : 'var(--status-error)' }}>{pct(item.margem)}</span>
+                        <span style={{ color: item.margem >= 0 ? 'var(--arm-text)' : 'var(--status-error)' }}>{pct(item.margem)}</span>
                       ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                     </td>
                     <td className="px-4 py-2.5">
@@ -476,6 +514,39 @@ export default function LucratividadeDetail() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalFiltered > 0 && (
+          <div
+            className="flex items-center justify-between px-6 py-3"
+            style={{ borderTop: '1px solid var(--border)' }}
+          >
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Mostrando {fromItem}–{toItem} de {totalFiltered} pedidos
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage((p) => p - 1)}
+                disabled={page === 1 || itemsLoading}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
+                style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+              >
+                ← Anterior
+              </button>
+              <span className="px-3 text-xs tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page >= totalPages || itemsLoading}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
+                style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+              >
+                Próxima →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -485,7 +556,7 @@ function ReembolsosCard({ reembolsos }: { reembolsos: Reembolso[] | null }) {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
 
-  const filtered = useMemo(() => {
+  const filtered = (() => {
     if (!reembolsos) return []
     const hasFilter = Boolean(from || to)
     return reembolsos.filter((r) => {
@@ -494,11 +565,11 @@ function ReembolsosCard({ reembolsos }: { reembolsos: Reembolso[] | null }) {
       if (to && r.dataLiquidacao > to) return false
       return true
     })
-  }, [reembolsos, from, to])
+  })()
 
-  const total = useMemo(() => filtered.reduce((s, r) => s + r.valor, 0), [filtered])
+  const total = filtered.reduce((s, r) => s + r.valor, 0)
 
-  const breakdown = useMemo(() => {
+  const breakdown = (() => {
     const map = new Map<string, { count: number; total: number }>()
     for (const r of filtered) {
       const cur = map.get(r.tipoTransacao) ?? { count: 0, total: 0 }
@@ -507,11 +578,11 @@ function ReembolsosCard({ reembolsos }: { reembolsos: Reembolso[] | null }) {
     return [...map.entries()]
       .map(([tipo, v]) => ({ tipo, count: v.count, total: v.total }))
       .sort((a, b) => Math.abs(b.total) - Math.abs(a.total))
-  }, [filtered])
+  })()
 
   if (reembolsos === null) {
     return (
-      <div className="rounded-xl p-5" style={{ backgroundColor: 'rgba(201,124,42,0.08)', border: '1px solid rgba(201,124,42,0.25)' }}>
+      <div className="rounded-xl p-5" style={{ backgroundColor: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.25)' }}>
         <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: 'var(--status-warn)' }}>Reembolsos</p>
         <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
           <strong>Reupload necessário.</strong> Esta feitoria foi criada antes da feature de reembolsos. Refaça o upload do arquivo de Liquidados para popular os dados.
@@ -524,11 +595,11 @@ function ReembolsosCard({ reembolsos }: { reembolsos: Reembolso[] | null }) {
   const inputStyle = { backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }
 
   return (
-    <div className="rounded-xl p-5" style={{ backgroundColor: 'rgba(75,142,232,0.08)', border: '1px solid rgba(75,142,232,0.2)' }}>
+    <div className="rounded-xl p-5" style={{ backgroundColor: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.18)' }}>
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: '#4B8EE8' }}>Reembolsos</p>
-          <p className="mt-2 text-2xl font-semibold tabular-nums" style={{ color: '#4B8EE8', letterSpacing: '-0.02em' }}>
+          <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: '#2563EB' }}>Reembolsos</p>
+          <p className="mt-2 text-2xl font-semibold tabular-nums" style={{ color: '#2563EB', letterSpacing: '-0.02em' }}>
             {fmt(total)}
           </p>
           <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -536,13 +607,13 @@ function ReembolsosCard({ reembolsos }: { reembolsos: Reembolso[] | null }) {
           </p>
 
           {breakdown.length > 0 && (
-            <div className="mt-3 space-y-1.5 pt-3" style={{ borderTop: '1px solid rgba(75,142,232,0.2)' }}>
+            <div className="mt-3 space-y-1.5 pt-3" style={{ borderTop: '1px solid rgba(37,99,235,0.18)' }}>
               {breakdown.map((b) => (
                 <div key={b.tipo} className="flex items-center justify-between gap-2">
-                  <span className="text-xs truncate" style={{ color: '#4B8EE8' }}>
+                  <span className="text-xs truncate" style={{ color: '#2563EB' }}>
                     {b.tipo} <span style={{ opacity: 0.7 }}>({b.count})</span>
                   </span>
-                  <span className="text-xs font-medium tabular-nums whitespace-nowrap" style={{ color: '#4B8EE8' }}>
+                  <span className="text-xs font-medium tabular-nums whitespace-nowrap" style={{ color: '#2563EB' }}>
                     {fmt(b.total)}
                   </span>
                 </div>

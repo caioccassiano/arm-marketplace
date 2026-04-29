@@ -77,6 +77,9 @@ export default function CmvTable() {
   const [form, setForm] = useState<EditForm>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+
+  const CMV_PAGE_SIZE = 50
 
   useEffect(() => {
     api.cmv
@@ -91,6 +94,17 @@ export default function CmvTable() {
     const s = search.toLowerCase()
     return p.codigo.toLowerCase().includes(s) || (p.descricao?.toLowerCase().includes(s) ?? false)
   })
+  const pagedFiltered = filtered.slice((page - 1) * CMV_PAGE_SIZE, page * CMV_PAGE_SIZE)
+  const totalPages = Math.ceil(filtered.length / CMV_PAGE_SIZE)
+
+  useEffect(() => { setPage(1) }, [search])
+
+  useEffect(() => {
+    if (editingId && editingId !== 'new') {
+      const idx = filtered.findIndex((p) => p.id === editingId)
+      if (idx !== -1) setPage(Math.floor(idx / CMV_PAGE_SIZE) + 1)
+    }
+  }, [editingId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function startEdit(p: CmvProduct) {
     setEditingId(p.id)
@@ -205,7 +219,7 @@ export default function CmvTable() {
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((p) =>
+                  pagedFiltered.map((p) =>
                     editingId === p.id ? (
                       <EditRow key={p.id} form={form} saving={saving} saveError={saveError} onChange={setForm} onSave={save} onCancel={cancelEdit} />
                     ) : (
@@ -219,7 +233,7 @@ export default function CmvTable() {
                         <td className="px-4 py-3 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatBRL(p.preco)}</td>
                         <td className="px-4 py-3 text-right whitespace-nowrap">
                           <button onClick={() => startEdit(p)} disabled={editingId !== null} className="mr-3 text-xs transition-colors disabled:opacity-30"
-                            style={{ color: 'var(--arm)' }}>
+                            style={{ color: 'var(--arm-text)' }}>
                             Editar
                           </button>
                           <button onClick={() => remove(p.id, p.codigo)} disabled={editingId !== null} className="text-xs transition-colors disabled:opacity-30"
@@ -235,6 +249,36 @@ export default function CmvTable() {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && !loadError && filtered.length > CMV_PAGE_SIZE && (
+          <div className="flex items-center justify-between px-6 py-3" style={{ borderTop: '1px solid var(--border)' }}>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Mostrando {(page - 1) * CMV_PAGE_SIZE + 1}–{Math.min(page * CMV_PAGE_SIZE, filtered.length)} de {filtered.length} SKUs
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage((p) => p - 1)}
+                disabled={page === 1}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
+                style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+              >
+                ← Anterior
+              </button>
+              <span className="px-3 text-xs tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page >= totalPages}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
+                style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+              >
+                Próxima →
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, type ReconciliationItem, type ReconciliationSession } from '../lib/api.ts'
@@ -7,22 +7,50 @@ import StatCard from '../components/StatCard.tsx'
 import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts'
 
 const PIE_COLORS = ['#7CC23A', '#E5534B', '#C97C2A', '#4B8EE8', '#8A8A94']
+const PAGE_SIZE = 20
+
+interface StatusSummaryRow {
+  status: string
+  count: number
+  totalDiff: string | null
+}
 
 interface DetailResponse {
   session: ReconciliationSession
+  summary: StatusSummaryRow[]
+  unresolvedCount: number
+}
+
+interface ItemsResponse {
   items: ReconciliationItem[]
+  total: number
+  page: number
+  limit: number
 }
 
 export default function ReconciliationDetail() {
   const { id } = useParams<{ id: string }>()
   const qc = useQueryClient()
   const [filter, setFilter] = useState<string>('all')
+  const [page, setPage] = useState(1)
   const [resolveId, setResolveId] = useState<number | null>(null)
   const [notes, setNotes] = useState('')
+
+  // Reset page on filter change
+  useEffect(() => { setPage(1) }, [filter])
 
   const { data } = useQuery({
     queryKey: ['reconciliation', id],
     queryFn: () => api.get<DetailResponse>(`/reconciliation/${id}`),
+  })
+
+  const { data: itemsData, isFetching: itemsFetching } = useQuery({
+    queryKey: ['reconciliation', id, 'items', page, filter],
+    queryFn: () => {
+      const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE), status: filter })
+      return api.get<ItemsResponse>(`/reconciliation/${id}/items?${params}`)
+    },
+    enabled: !!id,
   })
 
   const resolve = useMutation({
@@ -43,23 +71,15 @@ export default function ReconciliationDetail() {
     )
   }
 
-  const { session, items } = data
+  const { session, summary, unresolvedCount } = data
 
-  const statusCounts = items.reduce(
-    (acc, item) => {
-      acc[item.status] = (acc[item.status] ?? 0) + 1
-      return acc
-    },
-    {} as Record<string, number>,
-  )
+  const statusCounts = Object.fromEntries(summary.map((r) => [r.status, r.count]))
+  const pieData = summary.map((r) => ({ name: statusLabel(r.status), value: r.count }))
 
-  const pieData = Object.entries(statusCounts).map(([name, value]) => ({
-    name: statusLabel(name),
-    value,
-  }))
-
-  const filtered = filter === 'all' ? items : items.filter((i) => i.status === filter)
-  const unresolved = items.filter((i) => i.resolvedAt === null && i.status !== 'matched').length
+  const totalFiltered = itemsData?.total ?? 0
+  const totalPages = Math.ceil(totalFiltered / PAGE_SIZE)
+  const fromItem = totalFiltered > 0 ? (page - 1) * PAGE_SIZE + 1 : 0
+  const toItem = Math.min(page * PAGE_SIZE, totalFiltered)
 
   const cardStyle = { backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }
   const inputStyle = {
@@ -97,7 +117,7 @@ export default function ReconciliationDetail() {
           value={String((session.amountMismatchCount ?? 0) + (session.magazordOnlyCount ?? 0) + (session.marketplaceOnlyCount ?? 0))}
           color="red"
         />
-        <StatCard label="Diff Total" value={fmt(session.totalAmountDiff)} color="yellow" sub={`${unresolved} pendentes`} />
+        <StatCard label="Diff Total" value={fmt(session.totalAmountDiff)} color="yellow" sub={`${unresolvedCount} pendentes`} />
       </div>
 
       <div className="grid grid-cols-3 gap-6 mb-8">
@@ -112,7 +132,7 @@ export default function ReconciliationDetail() {
             </Pie>
             <Tooltip
               formatter={(v: unknown, name: unknown) => [String(v), String(name)]}
-              contentStyle={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'var(--text-primary)' }}
+              contentStyle={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'var(--text-primary)' }}
             />
             <Legend wrapperStyle={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }} />
           </PieChart>
@@ -129,9 +149,9 @@ export default function ReconciliationDetail() {
               { label: 'Só no Magazord', key: 'magazord_only' },
               { label: 'Só no Marketplace', key: 'marketplace_only' },
             ].map(({ label, key }) => {
-              const count = statusCounts[key] ?? 0
-              const diffItems = items.filter((i) => i.status === key && i.amountDiff)
-              const totalDiff = diffItems.reduce((s, i) => s + parseFloat(i.amountDiff ?? '0'), 0)
+              const row = summary.find((r) => r.status === key)
+              const cnt = row?.count ?? 0
+              const totalDiff = parseFloat(row?.totalDiff ?? '0')
               return (
                 <div key={key} className="flex items-center justify-between py-1.5" style={{ borderBottom: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-2">
@@ -140,7 +160,7 @@ export default function ReconciliationDetail() {
                     </span>
                   </div>
                   <div className="flex items-center gap-6 text-sm">
-                    <span style={{ color: 'var(--text-muted)' }}>{count} itens</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{cnt} itens</span>
                     {totalDiff > 0 && (
                       <span className="font-medium tabular-nums" style={{ color: 'var(--status-error)' }}>{fmt(totalDiff)}</span>
                     )}
@@ -169,10 +189,10 @@ export default function ReconciliationDetail() {
               outline: 'none',
             }}
           >
-            <option value="all">Todos ({items.length})</option>
-            {Object.entries(statusCounts).map(([status, count]) => (
-              <option key={status} value={status}>
-                {statusLabel(status)} ({count})
+            <option value="all">Todos</option>
+            {summary.map((r) => (
+              <option key={r.status} value={r.status}>
+                {statusLabel(r.status)} ({r.count})
               </option>
             ))}
           </select>
@@ -188,7 +208,13 @@ export default function ReconciliationDetail() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((item) => (
+              {itemsFetching ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+                    Carregando…
+                  </td>
+                </tr>
+              ) : (itemsData?.items ?? []).map((item) => (
                 <tr key={item.id} className="transition-colors" style={{ borderBottom: '1px solid var(--border)', opacity: item.resolvedAt ? 0.4 : 1 }}
                   onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-elevated)')}
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '')}
@@ -224,7 +250,7 @@ export default function ReconciliationDetail() {
                             onClick={() => resolve.mutate({ itemId: item.id, notes })}
                             disabled={resolve.isPending}
                             className="text-xs font-medium transition-colors"
-                            style={{ color: 'var(--arm)' }}
+                            style={{ color: 'var(--arm-text)' }}
                           >
                             Salvar
                           </button>
@@ -236,7 +262,7 @@ export default function ReconciliationDetail() {
                         <button
                           onClick={() => setResolveId(item.id)}
                           className="text-xs font-medium transition-colors"
-                          style={{ color: 'var(--arm)' }}
+                          style={{ color: 'var(--arm-text)' }}
                         >
                           Resolver
                         </button>
@@ -248,6 +274,36 @@ export default function ReconciliationDetail() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalFiltered > 0 && (
+          <div className="flex items-center justify-between px-6 py-3" style={{ borderTop: '1px solid var(--border)' }}>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Mostrando {fromItem}–{toItem} de {totalFiltered} itens
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage((p) => p - 1)}
+                disabled={page === 1 || itemsFetching}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
+                style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+              >
+                ← Anterior
+              </button>
+              <span className="px-3 text-xs tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page >= totalPages || itemsFetching}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
+                style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+              >
+                Próxima →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

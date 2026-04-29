@@ -64,7 +64,7 @@ export default function Layout({ children, user }: { children: React.ReactNode; 
                 isActive
                   ? {
                       backgroundColor: 'var(--arm-dim)',
-                      color: 'var(--arm)',
+                      color: 'var(--arm-text)',
                       boxShadow: 'inset 2px 0 0 var(--arm)',
                     }
                   : {
@@ -113,9 +113,9 @@ export default function Layout({ children, user }: { children: React.ReactNode; 
 function ArmIcon() {
   return (
     <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <rect width="28" height="28" rx="6" fill="var(--bg-elevated)" />
-      <line x1="8" y1="20" x2="13" y2="8" stroke="var(--text-primary)" strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="13" y1="20" x2="18" y2="8" stroke="var(--text-primary)" strokeWidth="2.5" strokeLinecap="round" />
+      <rect width="28" height="28" rx="6" fill="#0F1117" />
+      <line x1="8" y1="20" x2="13" y2="8" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="13" y1="20" x2="18" y2="8" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" />
       <circle cx="13" cy="15" r="2.5" fill="var(--arm)" />
     </svg>
   )

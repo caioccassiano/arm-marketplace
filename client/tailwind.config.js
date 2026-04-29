@@ -6,12 +6,12 @@ export default {
       colors: {
         arm: {
           DEFAULT: '#7CC23A',
-          dim: 'rgba(124,194,58,0.12)',
-          hover: '#90D44E',
+          dim: 'rgba(124,194,58,0.10)',
+          hover: '#6AB32B',
         },
-        surface: '#141417',
-        base: '#0C0C0E',
-        elevated: '#1E1E22',
+        surface: '#FFFFFF',
+        base: '#F4F6F8',
+        elevated: '#EEF0F3',
       },
     },
   },

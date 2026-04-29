@@ -7,6 +7,7 @@ import fastifyCors from '@fastify/cors'
 import fastifyStatic from '@fastify/static'
 import fastifyMultipart from '@fastify/multipart'
 import { env } from './config/env.js'
+import { createPgSessionStore } from './plugins/session-store.js'
 import dbPlugin from './plugins/db.js'
 import authPlugin from './plugins/auth.js'
 import authRoutes from './routes/auth.js'
@@ -42,8 +43,11 @@ await fastify.register(fastifyCors, {
 
 await fastify.register(fastifyCookie)
 
+const sessionStore = await createPgSessionStore()
+
 await fastify.register(fastifySession, {
   secret: env.SESSION_SECRET,
+  store: sessionStore,
   cookie: {
     secure: env.NODE_ENV === 'production',
     httpOnly: true,

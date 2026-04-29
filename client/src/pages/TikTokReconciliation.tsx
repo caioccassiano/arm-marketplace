@@ -99,11 +99,13 @@ function filterItems(items: TikTokItem[], tab: Tab): TikTokItem[] {
 }
 
 const STATUS_FINANCEIRO_STYLE: Record<string, string> = {
-  OK: 'bg-[rgba(124,194,58,0.15)] text-[#7CC23A]',
-  DIVERGENTE: 'bg-[rgba(229,83,75,0.15)] text-[#E5534B]',
-  A_RECEBER: 'bg-[rgba(201,124,42,0.15)] text-[#C97C2A]',
-  IGNORAR: 'bg-[rgba(82,82,92,0.3)] text-[#8A8A94]',
+  OK: 'bg-[rgba(124,194,58,0.12)] text-[#3A7D0A]',
+  DIVERGENTE: 'bg-[rgba(220,38,38,0.10)] text-[#B91C1C]',
+  A_RECEBER: 'bg-[rgba(217,119,6,0.12)] text-[#92400E]',
+  IGNORAR: 'bg-[rgba(107,114,128,0.12)] text-[#4B5563]',
 }
+
+const TIKTOK_PAGE_SIZE = 20
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 function fmt(v: string | null): string {
@@ -200,12 +202,15 @@ export default function TikTokReconciliation() {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>(persisted?.activeTab ?? 'todos')
   const [search, setSearch] = useState(persisted?.search ?? '')
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     if (result) {
       savePersisted({ result, activeTab, search })
     }
   }, [result, activeTab, search])
+
+  useEffect(() => { setPage(1) }, [activeTab, search])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -244,6 +249,8 @@ export default function TikTokReconciliation() {
           (i.items ?? []).some((it) => it.sku.toLowerCase().includes(searchTerm)),
       )
     : tabItems
+  const pagedVisible = visible.slice((page - 1) * TIKTOK_PAGE_SIZE, page * TIKTOK_PAGE_SIZE)
+  const totalPages = Math.ceil(visible.length / TIKTOK_PAGE_SIZE)
 
   function handleClear() {
     clearPersisted()
@@ -490,7 +497,7 @@ export default function TikTokReconciliation() {
                       </td>
                     </tr>
                   ) : (
-                    visible.map((item, idx) => (
+                    pagedVisible.map((item, idx) => (
                       <tr key={idx} className="transition-colors" style={{ borderBottom: '1px solid var(--border)' }}
                         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-elevated)')}
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '')}
@@ -571,6 +578,36 @@ export default function TikTokReconciliation() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {visible.length > TIKTOK_PAGE_SIZE && (
+              <div className="flex items-center justify-between px-6 py-3" style={{ borderTop: '1px solid var(--border)' }}>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Mostrando {(page - 1) * TIKTOK_PAGE_SIZE + 1}–{Math.min(page * TIKTOK_PAGE_SIZE, visible.length)} de {visible.length} itens
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPage((p) => p - 1)}
+                    disabled={page === 1}
+                    className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
+                    style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+                  >
+                    ← Anterior
+                  </button>
+                  <span className="px-3 text-xs tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                    {page} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={page >= totalPages}
+                    className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
+                    style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+                  >
+                    Próxima →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

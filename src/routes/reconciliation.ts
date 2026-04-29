@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { desc, eq } from 'drizzle-orm'
+import { and, count, desc, eq, isNull, ne, sum } from 'drizzle-orm'
 import { reconciliationSessions, reconciliationItems, orders } from '../db/schema.js'
 import { runReconciliation } from '../reconciliation/engine.js'
 
@@ -72,26 +72,75 @@ const reconciliationRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!session) return reply.code(404).send({ error: 'Sessão não encontrada' })
 
-      const items = await fastify.db
-        .select({
-          id: reconciliationItems.id,
-          status: reconciliationItems.status,
-          magazordAmount: reconciliationItems.magazordAmount,
-          marketplaceAmount: reconciliationItems.marketplaceAmount,
-          amountDiff: reconciliationItems.amountDiff,
-          magazordFee: reconciliationItems.magazordFee,
-          marketplaceFee: reconciliationItems.marketplaceFee,
-          feeDiff: reconciliationItems.feeDiff,
-          notes: reconciliationItems.notes,
-          resolvedAt: reconciliationItems.resolvedAt,
-          magazordOrderId: reconciliationItems.magazordOrderId,
-          marketplaceOrderId: reconciliationItems.marketplaceOrderId,
-        })
-        .from(reconciliationItems)
-        .where(eq(reconciliationItems.sessionId, sessionId))
-        .orderBy(reconciliationItems.status)
+      const [summary, [{ unresolvedCount }]] = await Promise.all([
+        fastify.db
+          .select({
+            status: reconciliationItems.status,
+            count: count(),
+            totalDiff: sum(reconciliationItems.amountDiff),
+          })
+          .from(reconciliationItems)
+          .where(eq(reconciliationItems.sessionId, sessionId))
+          .groupBy(reconciliationItems.status),
+        fastify.db
+          .select({ unresolvedCount: count() })
+          .from(reconciliationItems)
+          .where(
+            and(
+              eq(reconciliationItems.sessionId, sessionId),
+              isNull(reconciliationItems.resolvedAt),
+              ne(reconciliationItems.status, 'matched'),
+            ),
+          ),
+      ])
 
-      return reply.send({ session, items })
+      return reply.send({ session, summary, unresolvedCount })
+    },
+  )
+
+  fastify.get(
+    '/reconciliation/:id/items',
+    { preHandler: [fastify.requireAuth] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      const sessionId = parseInt(id, 10)
+      const query = request.query as Record<string, string>
+      const pageNum = Math.max(1, parseInt(query.page ?? '1', 10))
+      const limitNum = Math.min(100, Math.max(1, parseInt(query.limit ?? '20', 10)))
+      const statusFilter = query.status && query.status !== 'all' ? query.status : null
+
+      const where = statusFilter
+        ? and(eq(reconciliationItems.sessionId, sessionId), eq(reconciliationItems.status, statusFilter))
+        : eq(reconciliationItems.sessionId, sessionId)
+
+      const [items, [{ total }]] = await Promise.all([
+        fastify.db
+          .select({
+            id: reconciliationItems.id,
+            status: reconciliationItems.status,
+            magazordAmount: reconciliationItems.magazordAmount,
+            marketplaceAmount: reconciliationItems.marketplaceAmount,
+            amountDiff: reconciliationItems.amountDiff,
+            magazordFee: reconciliationItems.magazordFee,
+            marketplaceFee: reconciliationItems.marketplaceFee,
+            feeDiff: reconciliationItems.feeDiff,
+            notes: reconciliationItems.notes,
+            resolvedAt: reconciliationItems.resolvedAt,
+            magazordOrderId: reconciliationItems.magazordOrderId,
+            marketplaceOrderId: reconciliationItems.marketplaceOrderId,
+          })
+          .from(reconciliationItems)
+          .where(where)
+          .orderBy(reconciliationItems.status)
+          .limit(limitNum)
+          .offset((pageNum - 1) * limitNum),
+        fastify.db
+          .select({ total: count() })
+          .from(reconciliationItems)
+          .where(where),
+      ])
+
+      return reply.send({ items, total, page: pageNum, limit: limitNum })
     },
   )
 

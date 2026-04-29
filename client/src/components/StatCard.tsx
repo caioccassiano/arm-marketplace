@@ -12,14 +12,22 @@ const borderColors = {
   yellow: 'var(--status-warn)',
 }
 
+const bgColors = {
+  default: 'var(--bg-surface)',
+  green: 'rgba(124, 194, 58, 0.06)',
+  red: 'rgba(220, 38, 38, 0.05)',
+  yellow: 'rgba(217, 119, 6, 0.05)',
+}
+
 export default function StatCard({ label, value, sub, color = 'default' }: Props) {
   return (
     <div
       className="rounded-xl px-5 py-4"
       style={{
-        backgroundColor: 'var(--bg-surface)',
+        backgroundColor: bgColors[color],
         border: '1px solid var(--border)',
         borderLeft: `3px solid ${borderColors[color]}`,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
       }}
     >
       <p
@@ -29,7 +37,7 @@ export default function StatCard({ label, value, sub, color = 'default' }: Props
         {label}
       </p>
       <p
-        className="mt-1.5 text-2xl font-semibold tabular-nums"
+        className="mt-1.5 text-3xl font-bold tabular-nums"
         style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}
       >
         {value}
