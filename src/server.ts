@@ -63,10 +63,18 @@ await fastify.register(fastifyMultipart, {
 
 fastify.get('/api/health', async () => ({ status: 'ok' }))
 
-// API routes
+// Rotas públicas
 await fastify.register(
   async (app) => {
     app.register(authRoutes)
+  },
+  { prefix: '/api' },
+)
+
+// Rotas protegidas
+await fastify.register(
+  async (app) => {
+    app.addHook('preHandler', app.requireAuth)
     app.register(syncRoutes)
     app.register(ordersRoutes)
     app.register(reconciliationRoutes)

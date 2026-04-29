@@ -1,5 +1,6 @@
-import { NavLink } from 'react-router-dom'
-import { type User } from '../lib/api.ts'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import { api, type User } from '../lib/api.ts'
 
 const NAV = [
   { to: '/taxas', label: 'Taxas', icon: <IconTaxas /> },
@@ -10,6 +11,15 @@ const NAV = [
 ]
 
 export default function Layout({ children, user }: { children: React.ReactNode; user: User }) {
+  const navigate = useNavigate()
+  const qc = useQueryClient()
+
+  async function handleLogout() {
+    await api.post('/auth/logout', {})
+    qc.setQueryData(['me'], null)
+    navigate('/login', { replace: true })
+  }
+
   return (
     <div className="flex h-screen" style={{ backgroundColor: 'var(--bg-base)' }}>
       {/* Sidebar */}
@@ -82,6 +92,15 @@ export default function Layout({ children, user }: { children: React.ReactNode; 
           <p className="text-xs truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>
             {user.email}
           </p>
+          <button
+            onClick={handleLogout}
+            className="mt-3 text-xs transition-colors"
+            style={{ color: 'var(--text-muted)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--status-error)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+          >
+            Sair
+          </button>
         </div>
       </aside>
 
