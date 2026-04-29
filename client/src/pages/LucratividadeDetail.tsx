@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api.ts'
 import { fmt } from '../lib/utils.ts'
@@ -12,6 +12,14 @@ interface ResolvedSku extends SkuItem {
 interface FeeBreakdown {
   description: string
   amount: number
+}
+
+interface Reembolso {
+  orderId: string | null
+  ajusteId: string | null
+  dataLiquidacao: string | null
+  valor: number
+  tipoTransacao: string
 }
 
 interface EnrichedItem extends TikTokItem {
@@ -35,6 +43,7 @@ interface LucratividadeTotals {
   totalTaxas: number
   taxasBreakdownSummary: FeeBreakdown[]
   investimentoAds: number
+  totalReembolsos: number
   lucroLiquido: number
   pedidosSemCmv: number
   pedidosComCmv: number
@@ -60,6 +69,7 @@ interface LucratividadePayload {
   }
   totals: LucratividadeTotals
   items: EnrichedItem[]
+  reembolsos: Reembolso[] | null
   cmvSize: number
   feesCount: number
 }
@@ -84,7 +94,7 @@ export default function LucratividadeDetail() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [onlyTransacionado, setOnlyTransacionado] = useState(true)
-  const [adsInput, setAdsInput] = useState('')
+  const adsInputRef = useRef<HTMLInputElement>(null)
   const [adsLoading, setAdsLoading] = useState(false)
   const [adsMsg, setAdsMsg] = useState<string | null>(null)
   const [totals, setTotals] = useState<LucratividadeTotals | null>(null)
@@ -98,7 +108,7 @@ export default function LucratividadeDetail() {
       .then((d) => {
         setData(d)
         setTotals(d.totals)
-        setAdsInput(d.entrada.investimentoAds)
+        if (adsInputRef.current) adsInputRef.current.value = d.entrada.investimentoAds
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Erro ao carregar'))
       .finally(() => setLoading(false))
@@ -122,7 +132,8 @@ export default function LucratividadeDetail() {
 
   async function handleSaveAds() {
     if (!id || !data) return
-    const val = parseFloat(adsInput.replace(/\./g, '').replace(',', '.'))
+    const raw = adsInputRef.current?.value ?? ''
+    const val = parseFloat(raw.replace(/\./g, '').replace(',', '.'))
     if (!Number.isFinite(val) || val < 0) {
       setAdsMsg('Valor inválido')
       return
@@ -135,7 +146,7 @@ export default function LucratividadeDetail() {
         setTotals({
           ...totals,
           investimentoAds: val,
-          lucroLiquido: +(totals.totalReceitaLiquida - totals.totalCmv - totals.totalTaxas - val).toFixed(2),
+          lucroLiquido: +(totals.totalReceitaLiquida - totals.totalCmv - totals.totalTaxas - val + totals.totalReembolsos).toFixed(2),
         })
       }
       setAdsMsg('Salvo')
@@ -264,6 +275,9 @@ export default function LucratividadeDetail() {
         </div>
       </div>
 
+      {/* Reembolsos */}
+      <ReembolsosCard reembolsos={data.reembolsos ?? null} />
+
       {/* Investimento em Ads */}
       <div className="rounded-xl p-5 flex items-center gap-6" style={cardStyle}>
         <div className="flex-1">
@@ -271,10 +285,10 @@ export default function LucratividadeDetail() {
           <div className="mt-2 flex items-center gap-2">
             <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>R$</span>
             <input
+              ref={adsInputRef}
               type="text"
               inputMode="decimal"
-              value={adsInput}
-              onChange={(e) => setAdsInput(e.target.value)}
+              defaultValue=""
               className="w-48 rounded-lg px-2 py-1 text-2xl font-semibold tabular-nums outline-none"
               style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}
             />
@@ -313,7 +327,7 @@ export default function LucratividadeDetail() {
           {fmt(totals.lucroLiquido)}
         </p>
         <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-          receita líquida tiktok − cmv − taxas − investimento em ads
+          receita líquida tiktok − cmv − taxas − investimento em ads + reembolsos
         </p>
       </div>
 
@@ -461,6 +475,112 @@ export default function LucratividadeDetail() {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ReembolsosCard({ reembolsos }: { reembolsos: Reembolso[] | null }) {
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+
+  const filtered = useMemo(() => {
+    if (!reembolsos) return []
+    const hasFilter = Boolean(from || to)
+    return reembolsos.filter((r) => {
+      if (!r.dataLiquidacao) return !hasFilter
+      if (from && r.dataLiquidacao < from) return false
+      if (to && r.dataLiquidacao > to) return false
+      return true
+    })
+  }, [reembolsos, from, to])
+
+  const total = useMemo(() => filtered.reduce((s, r) => s + r.valor, 0), [filtered])
+
+  const breakdown = useMemo(() => {
+    const map = new Map<string, { count: number; total: number }>()
+    for (const r of filtered) {
+      const cur = map.get(r.tipoTransacao) ?? { count: 0, total: 0 }
+      map.set(r.tipoTransacao, { count: cur.count + 1, total: cur.total + r.valor })
+    }
+    return [...map.entries()]
+      .map(([tipo, v]) => ({ tipo, count: v.count, total: v.total }))
+      .sort((a, b) => Math.abs(b.total) - Math.abs(a.total))
+  }, [filtered])
+
+  if (reembolsos === null) {
+    return (
+      <div className="rounded-xl p-5" style={{ backgroundColor: 'rgba(201,124,42,0.08)', border: '1px solid rgba(201,124,42,0.25)' }}>
+        <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: 'var(--status-warn)' }}>Reembolsos</p>
+        <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+          <strong>Reupload necessário.</strong> Esta feitoria foi criada antes da feature de reembolsos. Refaça o upload do arquivo de Liquidados para popular os dados.
+        </p>
+      </div>
+    )
+  }
+
+  const hasFilter = Boolean(from || to)
+  const inputStyle = { backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }
+
+  return (
+    <div className="rounded-xl p-5" style={{ backgroundColor: 'rgba(75,142,232,0.08)', border: '1px solid rgba(75,142,232,0.2)' }}>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: '#4B8EE8' }}>Reembolsos</p>
+          <p className="mt-2 text-2xl font-semibold tabular-nums" style={{ color: '#4B8EE8', letterSpacing: '-0.02em' }}>
+            {fmt(total)}
+          </p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+            {filtered.length} reembolso(s){hasFilter ? ' no período' : ''} · soma ao lucro líquido
+          </p>
+
+          {breakdown.length > 0 && (
+            <div className="mt-3 space-y-1.5 pt-3" style={{ borderTop: '1px solid rgba(75,142,232,0.2)' }}>
+              {breakdown.map((b) => (
+                <div key={b.tipo} className="flex items-center justify-between gap-2">
+                  <span className="text-xs truncate" style={{ color: '#4B8EE8' }}>
+                    {b.tipo} <span style={{ opacity: 0.7 }}>({b.count})</span>
+                  </span>
+                  <span className="text-xs font-medium tabular-nums whitespace-nowrap" style={{ color: '#4B8EE8' }}>
+                    {fmt(b.total)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-end gap-2">
+          <div>
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>De</label>
+            <input
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              className="mt-1 block rounded-lg px-2 py-1 text-sm outline-none"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Até</label>
+            <input
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              className="mt-1 block rounded-lg px-2 py-1 text-sm outline-none"
+              style={inputStyle}
+            />
+          </div>
+          {hasFilter && (
+            <button
+              onClick={() => { setFrom(''); setTo('') }}
+              className="text-xs underline pb-1"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              Limpar
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -164,6 +164,14 @@ export interface TikTokItem {
   items: SkuItem[]
 }
 
+export interface ReembolsoEntry {
+  orderId: string | null
+  ajusteId: string | null
+  dataLiquidacao: string | null
+  valor: number
+  tipoTransacao: string
+}
+
 export interface TikTokReconcileResult {
   summary: {
     tiktokTotal: number
@@ -180,6 +188,7 @@ export interface TikTokReconcileResult {
     totalComissaoCreator: number
   }
   items: TikTokItem[]
+  reembolsos: ReembolsoEntry[]
 }
 
 const TIKTOK_TRANSACIONADO = new Set(['Concluído', 'A ser enviado', 'Enviado'])
@@ -292,10 +301,42 @@ interface LiquidadoData {
   comissaoCreator: number
 }
 
-function parseLiquidadosFile(buf: Buffer): Map<string, LiquidadoData> {
+function normalizeHeader(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+}
+
+function findHeaderIdx(header: string[], patterns: RegExp[]): number {
+  for (let i = 0; i < header.length; i++) {
+    const h = normalizeHeader(String(header[i] ?? ''))
+    if (patterns.some((p) => p.test(h))) return i
+  }
+  return -1
+}
+
+function parseDataLiquidacao(raw: string): string | null {
+  const s = (raw ?? '').trim()
+  if (!s) return null
+  let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s)
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`
+  m = /^(\d{2})[\/\-](\d{2})[\/\-](\d{4})/.exec(s)
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`
+  m = /^(\d{4})\/(\d{2})\/(\d{2})/.exec(s)
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`
+  const d = new Date(s)
+  if (!isNaN(d.getTime())) {
+    const yyyy = d.getUTCFullYear()
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+    const dd = String(d.getUTCDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+  }
+  return null
+}
+
+function parseLiquidadosFile(buf: Buffer): { paid: Map<string, LiquidadoData>; reembolsos: ReembolsoEntry[] } {
   // Liquidação: para cada linha, lê col G (idx 6) "ID do pedido/ajuste" + col 38 "ID do pedido relacionado"
   // Soma col N (idx 13) "Valor total a ser liquidado" agrupado pelo orderId — refunds zeram o valor.
   // Tarifa TikTok = cols Y(24) + AA(26) + AB(27); Comissão Creator = col AF(31)
+  // Coluna F (idx 5) "Tipo de Transacao" — quando contém "Reembolso", linha vira entrada em `reembolsos`.
   let sheets: string[][][]
   if (isXlsxBuffer(buf)) {
     const wb = XLSX.read(buf, { type: 'buffer' })
@@ -314,6 +355,7 @@ function parseLiquidadosFile(buf: Buffer): Map<string, LiquidadoData> {
   }
 
   const paid = new Map<string, LiquidadoData>()
+  const reembolsos: ReembolsoEntry[] = []
   const isOrderId = (s: string): boolean => s.length >= 15 && /^\d+$/.test(s)
   const parseValue = (s: string): number => {
     const n = parseFloat(String(s ?? '').trim())
@@ -325,6 +367,9 @@ function parseLiquidadosFile(buf: Buffer): Map<string, LiquidadoData> {
     const header = rows[0]?.map((h) => String(h ?? '').trim()) ?? []
     if (header[6] !== 'ID do pedido/ajuste') continue
 
+    const idxTipo = findHeaderIdx(header, [/tipo.*transac/, /transaction.*type/])
+    const idxData = findHeaderIdx(header, [/data.*liquidac/, /^data$/, /liquidation.*date/, /transaction.*date/])
+
     for (const cols of rows.slice(1)) {
       const direct = String(cols[6] ?? '').trim()
       const related = String(cols[38] ?? '').trim()
@@ -333,10 +378,25 @@ function parseLiquidadosFile(buf: Buffer): Map<string, LiquidadoData> {
       // - Para "Reembolso de logística" e outros ajustes: col 6 = ID do ajuste,
       //   col 38 = ID do pedido original que recebe o ajuste
       const orderId = isOrderId(related) ? related : isOrderId(direct) ? direct : ''
-      if (!orderId) continue
       const value = parseValue(String(cols[13] ?? ''))
       const tarifa = parseValue(String(cols[24] ?? '')) + parseValue(String(cols[26] ?? '')) + parseValue(String(cols[27] ?? ''))
       const comissao = parseValue(String(cols[31] ?? ''))
+
+      if (idxTipo >= 0) {
+        const tipo = String(cols[idxTipo] ?? '').trim()
+        if (tipo && normalizeHeader(tipo).includes('reembolso')) {
+          const dataRaw = idxData >= 0 ? String(cols[idxData] ?? '').trim() : ''
+          reembolsos.push({
+            orderId: isOrderId(related) ? related : null,
+            ajusteId: isOrderId(direct) ? direct : null,
+            dataLiquidacao: parseDataLiquidacao(dataRaw),
+            valor: value,
+            tipoTransacao: tipo,
+          })
+        }
+      }
+
+      if (!orderId) continue
       const existing = paid.get(orderId) ?? { valor: 0, tarifaTiktok: 0, comissaoCreator: 0 }
       paid.set(orderId, {
         valor: existing.valor + value,
@@ -345,7 +405,7 @@ function parseLiquidadosFile(buf: Buffer): Map<string, LiquidadoData> {
       })
     }
   }
-  return paid
+  return { paid, reembolsos }
 }
 
 function parseEmEsperaFile(buf: Buffer): Map<string, LiquidadoData> {
@@ -651,7 +711,11 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
 
       const tiktokRows = parseTiktokFile(tiktokBuf)
       const magazordRows = parseMagazordFile(magazordBuf)
-      const paidMap = liquidadosBuf ? parseLiquidadosFile(liquidadosBuf) : new Map<string, LiquidadoData>()
+      const liquidadosResult = liquidadosBuf
+        ? parseLiquidadosFile(liquidadosBuf)
+        : { paid: new Map<string, LiquidadoData>(), reembolsos: [] as ReembolsoEntry[] }
+      const paidMap = liquidadosResult.paid
+      const reembolsos = liquidadosResult.reembolsos
       const waitingMap = emEsperaBuf ? parseEmEsperaFile(emEsperaBuf) : new Map<string, LiquidadoData>()
       const items = reconcileTiktok(tiktokRows, magazordRows, paidMap, waitingMap)
 
@@ -684,6 +748,7 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
           totalComissaoCreator: +totalComissaoCreator.toFixed(2),
         },
         items,
+        reembolsos,
       }
 
       return reply.send(result)

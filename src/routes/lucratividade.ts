@@ -35,6 +35,7 @@ interface LucratividadeTotals {
   totalTaxas: number
   taxasBreakdownSummary: FeeBreakdown[]
   investimentoAds: number
+  totalReembolsos: number
   lucroLiquido: number
   pedidosSemCmv: number
   pedidosComCmv: number
@@ -81,6 +82,7 @@ function enrichWithCmvAndFees(
   cmvByCodigo: Map<string, number>,
   feesSnapshot: FeeSnapshot[],
   investimentoAds: number,
+  totalReembolsos: number,
 ): { items: EnrichedItem[]; totals: LucratividadeTotals } {
   const enriched: EnrichedItem[] = []
   let totalReceitaMagazord = 0
@@ -172,7 +174,8 @@ function enrichWithCmvAndFees(
     description,
     amount: +amount.toFixed(2),
   }))
-  const lucroLiquido = +(totalReceitaLiquida - totalCmv - totalTaxas - investimentoAds).toFixed(2)
+  const totalReembolsosRounded = +totalReembolsos.toFixed(2)
+  const lucroLiquido = +(totalReceitaLiquida - totalCmv - totalTaxas - investimentoAds + totalReembolsosRounded).toFixed(2)
 
   return {
     items: enriched,
@@ -183,6 +186,7 @@ function enrichWithCmvAndFees(
       totalTaxas: +totalTaxas.toFixed(2),
       taxasBreakdownSummary,
       investimentoAds,
+      totalReembolsos: totalReembolsosRounded,
       lucroLiquido,
       pedidosSemCmv,
       pedidosComCmv,
@@ -311,7 +315,14 @@ const lucratividadeRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const investimentoAds = parseFloat(entrada.investimentoAds)
-    const { items, totals } = enrichWithCmvAndFees(filteredPayload, cmvMap, feesSnapshot, investimentoAds)
+    const reembolsos = (payload as { reembolsos?: unknown }).reembolsos
+    const reembolsosResponse = Array.isArray(reembolsos)
+      ? (reembolsos as Array<{ valor: number }>)
+      : null
+    const totalReembolsos = reembolsosResponse
+      ? reembolsosResponse.reduce((s, r) => s + (Number.isFinite(r.valor) ? r.valor : 0), 0)
+      : 0
+    const { items, totals } = enrichWithCmvAndFees(filteredPayload, cmvMap, feesSnapshot, investimentoAds, totalReembolsos)
 
     return reply.send({
       entrada: {
@@ -331,6 +342,7 @@ const lucratividadeRoutes: FastifyPluginAsync = async (fastify) => {
       },
       totals,
       items,
+      reembolsos: reembolsosResponse,
       cmvSize: cmvMap.size,
       feesCount: feesSnapshot.length,
       feesSnapshot,

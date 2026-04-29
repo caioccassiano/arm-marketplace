@@ -1,10 +1,14 @@
 const BASE = '/api'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = { ...(init?.headers as Record<string, string> | undefined) }
+  if (init?.body !== undefined && headers['Content-Type'] === undefined) {
+    headers['Content-Type'] = 'application/json'
+  }
   const res = await fetch(`${BASE}${path}`, {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
     ...init,
+    headers,
   })
 
   if (res.status === 401) {

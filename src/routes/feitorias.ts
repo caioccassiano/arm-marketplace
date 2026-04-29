@@ -9,6 +9,14 @@ const skuItemSchema = z.object({
   quantity: z.number().int().min(1),
 })
 
+const reembolsoSchema = z.object({
+  orderId: z.string().nullable(),
+  ajusteId: z.string().nullable(),
+  dataLiquidacao: z.string().nullable(),
+  valor: z.number(),
+  tipoTransacao: z.string(),
+})
+
 const tiktokItemSchema = z.object({
   statusMatch: z.enum(['MATCH_OK', 'MATCH_COM_DIVERGENCIA', 'SOMENTE_TIKTOK', 'SOMENTE_ERP']),
   statusFinanceiro: z.enum(['OK', 'DIVERGENTE', 'A_RECEBER', 'IGNORAR']),
@@ -45,6 +53,7 @@ const payloadSchema = z.object({
     totalComissaoCreator: z.number().default(0),
   }),
   items: z.array(tiktokItemSchema),
+  reembolsos: z.array(reembolsoSchema).default([]),
 })
 
 const createBody = z.object({
