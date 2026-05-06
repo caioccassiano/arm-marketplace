@@ -75,6 +75,7 @@ export default function FeitoriaDetail() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [onlyTransacionado, setOnlyTransacionado] = useState(true)
+  const [onlySemCusto, setOnlySemCusto] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -89,7 +90,8 @@ export default function FeitoriaDetail() {
   const visible = useMemo(() => {
     if (!data) return []
     let out = data.items
-    if (onlyTransacionado) out = out.filter((i) => i.foiTransacionado)
+    if (onlySemCusto) out = out.filter((i) => i.missingCmv && i.foiTransacionado)
+    else if (onlyTransacionado) out = out.filter((i) => i.foiTransacionado)
     const term = search.trim().toLowerCase()
     if (term) {
       out = out.filter(
@@ -100,7 +102,7 @@ export default function FeitoriaDetail() {
       )
     }
     return out
-  }, [data, search, onlyTransacionado])
+  }, [data, search, onlyTransacionado, onlySemCusto])
 
   if (loading) {
     return <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Carregando…</p>
@@ -167,10 +169,18 @@ export default function FeitoriaDetail() {
           <p className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Margem</p>
           <p className="mt-2 text-2xl font-semibold tabular-nums" style={{ color: (totals.margem ?? 0) >= 0 ? 'var(--arm)' : 'var(--status-error)', letterSpacing: '-0.02em' }}>{pct(totals.margem)}</p>
           {(totals.pedidosSemCmv > 0 || totals.pedidosSemLiquida > 0) && (
-            <p className="text-xs mt-1" style={{ color: 'var(--status-warn)' }}>
-              {totals.pedidosSemCmv > 0 && `${totals.pedidosSemCmv} sem custo`}
-              {totals.pedidosSemCmv > 0 && totals.pedidosSemLiquida > 0 && ' · '}
-              {totals.pedidosSemLiquida > 0 && `${totals.pedidosSemLiquida} sem líquida`}
+            <p className="text-xs mt-1 flex items-center gap-1.5">
+              {totals.pedidosSemCmv > 0 && (
+                <button
+                  onClick={() => setOnlySemCusto((v) => !v)}
+                  className="underline underline-offset-2 transition-colors"
+                  style={{ color: onlySemCusto ? 'var(--status-error)' : 'var(--status-warn)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 'inherit' }}
+                >
+                  {totals.pedidosSemCmv} sem custo{onlySemCusto ? ' ×' : ''}
+                </button>
+              )}
+              {totals.pedidosSemCmv > 0 && totals.pedidosSemLiquida > 0 && <span style={{ color: 'var(--text-muted)' }}>·</span>}
+              {totals.pedidosSemLiquida > 0 && <span style={{ color: 'var(--status-warn)' }}>{totals.pedidosSemLiquida} sem líquida</span>}
             </p>
           )}
         </div>
@@ -178,10 +188,21 @@ export default function FeitoriaDetail() {
 
       {/* Filters */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-          <input type="checkbox" checked={onlyTransacionado} onChange={(e) => setOnlyTransacionado(e.target.checked)} className="rounded" style={{ accentColor: 'var(--arm)' }} />
-          Apenas pedidos transacionados
-        </label>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm" style={{ color: onlySemCusto ? 'var(--text-muted)' : 'var(--text-secondary)' }}>
+            <input type="checkbox" checked={onlyTransacionado} onChange={(e) => setOnlyTransacionado(e.target.checked)} disabled={onlySemCusto} className="rounded" style={{ accentColor: 'var(--arm)' }} />
+            Apenas pedidos transacionados
+          </label>
+          {onlySemCusto && (
+            <button
+              onClick={() => setOnlySemCusto(false)}
+              className="text-xs px-2 py-1 rounded-full transition-colors"
+              style={{ backgroundColor: 'rgba(201,124,42,0.15)', color: 'var(--status-warn)', border: '1px solid rgba(201,124,42,0.3)', cursor: 'pointer' }}
+            >
+              Mostrando apenas sem custo ×
+            </button>
+          )}
+        </div>
         <div className="relative">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
